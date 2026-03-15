@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Count Random Player</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --accent-color: #ef4444;
+            --accent-hover: #dc2626;
+            --text-color: #f8fafc;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-image: radial-gradient(circle at top right, #1e293b, #0f172a);
+        }
+
+        .container {
+            background: var(--panel-bg);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 700px;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 1.8rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .input-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        input[type="number"] {
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 1rem;
+            width: 200px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--accent-color);
+        }
+
+        button {
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: none;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-play {
+            background-color: var(--accent-color);
+            color: white;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-play:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            border-radius: 12px;
+            margin: 20px 0;
+            background: #000;
+            display: none; /* 初期状態は非表示 */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .action-buttons {
+            display: none; /* 初期状態は非表示 */
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn-next {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-next:hover {
+            background-color: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .btn-youtube {
+            background-color: #27272a;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-decoration: none;
+        }
+
+        .btn-youtube:hover {
+            background-color: #3f3f46;
+            transform: translateY(-2px);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>View Count Roulette</h1>
+        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 25px;">
+            ※APIの制限上、現在はデモ用の動画リストからランダム再生されます。
+        </p>
+
+        <div class="input-group">
+            <input type="number" id="viewCountInput" placeholder="再生回数を入力..." min="0">
+            <button class="btn-play" onclick="startPlayer()">▶ 検索して再生</button>
+        </div>
+
+        <div class="video-wrapper" id="videoWrapper">
+            <div id="player"></div>
+        </div>
+
+        <div class="action-buttons" id="actionButtons">
+            <button class="btn-next" onclick="playRandomVideo()">⏭ 違う動画にする</button>
+            <a href="#" target="_blank" class="btn-youtube" id="youtubeLink">↗ YouTubeで見る</a>
+        </div>
+    </div>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        let player;
+        let currentVideoId = '';
+
+        // デモ用のYouTube動画IDリスト（APIの代わり）
+        const mockVideoList = [
+            'dQw4w9WgXcQ', // Rick Astley
+            'jNQXAC9IVRw', // Me at the zoo (最初のYouTube動画)
+            '9bZkp7q19f0', // Gangnam Style
+            'kJQP7kiw5Fk', // Despacito
+            'fJ9rUzIMcZQ'  // Bohemian Rhapsody
+        ];
+
+        // プレーヤーの準備完了（API読み込み後に呼ばれる）
+        function onYouTubeIframeAPIReady() {
+            // 初期状態ではプレーヤーは作らず、待機
+        }
+
+        // 初回の再生ボタンが押された時
+        function startPlayer() {
+            const inputVal = document.getElementById('viewCountInput').value;
+            if (!inputVal) {
+                alert('再生回数を入力してください！');
+                return;
+            }
+
+            document.getElementById('videoWrapper').style.display = 'block';
+            document.getElementById('actionButtons').style.display = 'flex';
+
+            if (!player) {
+                // 初回はプレーヤーを生成
+                currentVideoId = getRandomVideoId();
+                player = new YT.Player('player', {
+                    videoId: currentVideoId,
+                    events: {
+                        'onReady': onPlayerReady
+                    }
+                });
+                updateYouTubeLink(currentVideoId);
+            } else {
+                // 既にプレーヤーがあれば別の動画を再生
+                playRandomVideo();
+            }
+        }
+
+        // プレーヤーの準備ができたら再生
+        function onPlayerReady(event) {
+            event.target.playVideo();
+        }
+
+        // 違う動画にする処理
+        function playRandomVideo() {
+            let nextVideoId = getRandomVideoId();
+            // 同じ動画が連続しないようにする
+            while (nextVideoId === currentVideoId) {
+                nextVideoId = getRandomVideoId();
+            }
+            currentVideoId = nextVideoId;
+            
+            if (player && player.loadVideoById) {
+                player.loadVideoById(currentVideoId);
+                updateYouTubeLink(currentVideoId);
+            }
+        }
+
+        // リストからランダムなIDを取得
+        function getRandomVideoId() {
+            const randomIndex = Math.floor(Math.random() * mockVideoList.length);
+            return mockVideoList[randomIndex];
+        }
+
+        // 「YouTubeで見る」ボタンのリンクを更新
+        function updateYouTubeLink(videoId) {
+            const linkElement = document.getElementById('youtubeLink');
+            linkElement.href = `https://www.youtube.com/watch?v=${videoId}`;
+        }
+    </script>
+</body>
+</html>
